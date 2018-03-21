@@ -1,0 +1,11 @@
+import "OpenposeServer.idsl";
+
+Component openposeserver
+{
+	Communications
+	{
+		implements OpenposeServer;
+	};
+	language Cpp;
+};
+
