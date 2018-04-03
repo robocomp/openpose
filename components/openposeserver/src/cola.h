@@ -46,7 +46,7 @@ class Cola
 		void movePeople(RoboCompOpenposeServer::People&& people_);
 
 	private:
-		cv::Mat img;
+		cv::Mat img{480,640,CV_8UC3};
 		RoboCompOpenposeServer::People people;
 		std::atomic<bool> waiting{false};
 		std::atomic<bool> ready{false};

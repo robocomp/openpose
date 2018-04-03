@@ -19,6 +19,8 @@
 import sys, os, traceback, time
 import cv2
 import numpy as np
+import requests
+
 
 from PySide import QtGui, QtCore
 from genericworker import *
@@ -46,7 +48,8 @@ class SpecificWorker(GenericWorker):
 			print "Error reading config params"
 			sys.exit()
 
-		self.cap = cv2.VideoCapture(0)
+		self.cap = cv2.VideoCapture(camera)
+		self.stream = requests.get(camera, stream=True)
 		
 		if (self.cap.isOpened()== False): 
 			print("Error opening video stream or file")
@@ -55,13 +58,15 @@ class SpecificWorker(GenericWorker):
 	@QtCore.Slot()
 	def compute(self):
 		print 'SpecificWorker.compute...'
-		ret, frame = self.cap.read()
+		#ret, frame = self.cap.read()
+		ret, frame = self.readImg()
+		
 		try:
 			img = TImage(frame.shape[1], frame.shape[0], 3, ())
 			img.image = frame.data
 			people = self.openposeserver_proxy.processImage(img)
-			print people
 			self.drawPose(people, frame)
+			
 			
 		except Ice.Exception, e:
 			traceback.print_exc()
@@ -106,7 +111,17 @@ class SpecificWorker(GenericWorker):
 			color = np.random.random_integers(0,255,3)
 			cv2.line(img, (body[one].x,body[one].y), (body[two].x, body[two].y), color, 2)
 			
-			
-			
-			
-			
+
+	def readImg(self):
+		bytes = ''
+		for chunk in self.stream.iter_content(chunk_size=1024):
+			bytes += chunk
+			a = bytes.find(b'\xff\xd8')
+			b = bytes.find(b'\xff\xd9')
+			if a != -1 and b != -1:
+				jpg = bytes[a:b+2]
+				bytes = bytes[b+2:]
+				if len(jpg) > 0:
+					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+					return True, img
+		
