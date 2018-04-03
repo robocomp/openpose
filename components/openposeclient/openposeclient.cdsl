@@ -1,0 +1,11 @@
+import "OpenposeServer.idsl";
+
+Component openposeclient
+{
+	Communications
+	{
+		requires OpenposeServer;
+	};
+	language Python;
+};
+
