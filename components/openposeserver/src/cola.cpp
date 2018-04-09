@@ -11,10 +11,12 @@ void Cola::copyImg(const RoboCompOpenposeServer::TImage &img_)
 	//img.data = (uchar *)(&img_.image[0]);
 	//std::cout << img.data.size() << std::endl;
 	//memcpy(img.data, &(img_.image[0]), 640*480*3);
-	
+	//img = (cv::Mat)(&(img_.image[0]));
 	//std::lock_guard<std::mutex> ml(mutex);
 	auto d = img_.image;
-	img = cv::Mat(480,640,CV_8UC3,&d[0]);
+	
+	img = cv::Mat(480,640,CV_8UC3, &d[0]);
+	
 	waiting.store(true);
 }
 

@@ -20,7 +20,7 @@ import sys, os, traceback, time
 import cv2
 import numpy as np
 import requests
-
+import thread
 
 from PySide import QtGui, QtCore
 from genericworker import *
@@ -48,32 +48,31 @@ class SpecificWorker(GenericWorker):
 			print "Error reading config params"
 			sys.exit()
 
-		self.cap = cv2.VideoCapture(camera)
+		#self.cap = cv2.VideoCapture(camera)
 		self.stream = requests.get(camera, stream=True)
 		
-		if (self.cap.isOpened()== False): 
-			print("Error opening video stream or file")
+		#if (self.cap.isOpened()== False): 
+			#print("Error opening video stream or file")
+					
 		return True
 
 	@QtCore.Slot()
 	def compute(self):
-		print 'SpecificWorker.compute...'
-		#ret, frame = self.cap.read()
-		ret, frame = self.readImg()
-		
-		try:
-			img = TImage(frame.shape[1], frame.shape[0], 3, ())
-			img.image = frame.data
-			people = self.openposeserver_proxy.processImage(img)
-			self.drawPose(people, frame)
+			print 'SpecificWorker.compute...'
+			#ret, frame = self.cap.read()
+			ret, frame = self.readImg()
 			
-			
-		except Ice.Exception, e:
-			traceback.print_exc()
-			print e
+			try:
+				img = TImage(frame.shape[1], frame.shape[0], 3, ())
+				img.image = frame.data
+				people = self.openposeserver_proxy.processImage(img)
+				self.drawPose(people, frame)
+				
+			except Ice.Exception, e:
+				traceback.print_exc()
+				print e
 
-
-		return True
+			return True
 
 	def drawPose(self, people, img):
 		for person in people:
@@ -125,3 +124,19 @@ class SpecificWorker(GenericWorker):
 					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
 					return True, img
 		
+	#def drawGrid(self, w, h, imgs):
+		#n = w*h
+		#if any(i.shape != imgs[0].shape for i in imgs[1:]):
+			#raise ValueError('Not all images have the same shape.')
+		#img_h, img_w, img_c = imgs[0].shape
+		#m_x = 0
+		#m_y = 0
+		#imgmatrix = np.zeros((img_h * h + m_y * (h - 1),img_w * w + m_x * (w - 1),img_c),np.uint8)
+		## imgmatrix.fill(255)    
+		#positions = itertools.product(range(w), range(h))
+		#for (x_i, y_i), img in itertools.izip(positions, imgs):
+			#x = x_i * (img_w + m_x)
+			#y = y_i * (img_h + m_y)
+			#imgmatrix[y:y+img_h, x:x+img_w, :] = img
+
+		#return imgmatrix
