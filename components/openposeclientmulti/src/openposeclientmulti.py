@@ -64,6 +64,13 @@ from PySide import QtGui, QtCore
 
 from specificworker import *
 
+from flask import Flask, render_template, Response
+
+appp = Flask(__name__)
+
+@appp.route('/')
+def index():
+    return render_template('index.html')
 
 class CommonBehaviorI(RoboCompCommonBehavior.CommonBehavior):
 	def __init__(self, _handler, _communicator):
@@ -88,7 +95,6 @@ class CommonBehaviorI(RoboCompCommonBehavior.CommonBehavior):
 			traceback.print_exc()
 			status = 1
 			return
-
 
 
 if __name__ == '__main__':
@@ -125,8 +131,20 @@ if __name__ == '__main__':
 	if status == 0:
 		worker = SpecificWorker(mprx)
 		worker.setParams(parameters)
-
+		
+	def gen(worker):
+		while True:
+			frame = worker.compute(worker)
+			yield (b'--frame\r\n'
+				b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+			
+	@appp.route('/video_feed')
+	def video_feed(worker):
+		return Response(gen(worker),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+			
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
+	appp.run(host='0.0.0.0', debug=True)
 	app.exec_()
 
 	if ic:
