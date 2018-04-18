@@ -22,6 +22,8 @@ import numpy as np
 import requests
 import thread
 import itertools
+from flask import Flask, render_template, Response
+
 
 from PySide import QtGui, QtCore
 from genericworker import *
@@ -37,7 +39,8 @@ class SpecificWorker(GenericWorker):
 		super(SpecificWorker, self).__init__(proxy_map)
 		self.timer.timeout.connect(self.compute)
 		self.Period = 50
-		self.timer.start(self.Period)
+		self.timer.start(self.Period)		
+		
 
 	def setParams(self, params):
 		try:
@@ -75,14 +78,15 @@ class SpecificWorker(GenericWorker):
 		self.stream4 = requests.get(camera4, stream=True)
 		self.stream5 = requests.get(camera5, stream=True)
 		
+		
+		
 		#if (self.cap.isOpened()== False): 
 			#print("Error opening video stream or file")
-					
 		return True
 
 	@QtCore.Slot()
 	def compute(self):
-			print 'SpecificWorker.compute...'
+			#print 'SpecificWorker.compute...'
 			#ret, frame = self.cap.read()
 			ret0, frame0 = self.readImg(self.stream0)
 			ret1, frame1 = self.readImg(self.stream1)
@@ -90,7 +94,6 @@ class SpecificWorker(GenericWorker):
 			ret3, frame3 = self.readImg(self.stream3)
 			ret4, frame4 = self.readImg(self.stream4)
 			ret5, frame5 = self.readImg(self.stream5)
-			
 			try:
 				imgs = []
 				#frame a frame0, jose
@@ -122,13 +125,13 @@ class SpecificWorker(GenericWorker):
 				
 				imggrid = self.drawGrid(3,2, imgs)
 				cv2.imshow('OpenPose',imggrid)
-				ret, jpeg = cv2.imencode('jpg', imggrid)
+				ret, jpeg = cv2.imencode('.jpg', imggrid)
+				self.jpegResult = jpeg.tobytes()
 				
 			except Ice.Exception, e:
 				traceback.print_exc()
 				print e
-
-			return jpeg.tobytes()
+			
 			#return True
 
 	def drawPose(self, people, img):

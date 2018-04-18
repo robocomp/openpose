@@ -59,18 +59,33 @@ import sys, traceback, IceStorm, subprocess, threading, time, Queue, os, copy
 
 # Ctrl+c handling
 import signal
+import threading
 
 from PySide import QtGui, QtCore
-
+from flask import Flask, render_template, Response
 from specificworker import *
 
-from flask import Flask, render_template, Response
-
 appp = Flask(__name__)
+
+def Hola(count):
+    """funcion que realiza el trabajo en el thread"""
+    print "Este es el %s trabajo que hago hoy para Genbeta Dev" % count
+    return
 
 @appp.route('/')
 def index():
     return render_template('index.html')
+
+def gen(specificworker):
+	print 'Estoy trabajando'
+	while True:
+		yield (b'--frame\r\n'
+			b'Content-Type: image/jpeg\r\n\r\n' + specificworker.jpegResult + b'\r\n\r\n')
+	
+			
+@appp.route('/video_feed')
+def video_feed():
+	return Response(gen(worker), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 class CommonBehaviorI(RoboCompCommonBehavior.CommonBehavior):
 	def __init__(self, _handler, _communicator):
@@ -132,21 +147,13 @@ if __name__ == '__main__':
 		worker = SpecificWorker(mprx)
 		worker.setParams(parameters)
 		
-	def gen(worker):
-		while True:
-			frame = worker.compute(worker)
-			yield (b'--frame\r\n'
-				b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-			
-	@appp.route('/video_feed')
-	def video_feed(worker):
-		return Response(gen(worker),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-			
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
-	appp.run(host='0.0.0.0', debug=True)
 	app.exec_()
-
+	print"Paso*******"
+	#para multi client thread=True
+	#Para poder acceder desde otros equipos cambiar puerto a 8080
+    appp.(host='0.0.0.0')
+    
 	if ic:
 		try:
 			ic.destroy()

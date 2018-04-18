@@ -39,8 +39,7 @@ class SpecificWorker(GenericWorker):
 
 	def setParams(self, params):
 		try:
-			camera0 = params["Camera0"]
-			camera1 = params["Camera1"]
+			camera = params["Camera"]
 			
 			if camera == "webcam":
 				camera = 0
@@ -51,8 +50,8 @@ class SpecificWorker(GenericWorker):
 			sys.exit()
 
 		#self.cap = cv2.VideoCapture(camera)
-		self.stream0 = requests.get(camera0, stream=True)
-		self.stream1 = requests.get(camera1, stream=True)
+		self.stream = requests.get(camera, stream=True)
+		self.fgbg = cv2.createBackgroundSubtractorMOG2()
 		
 		#if (self.cap.isOpened()== False): 
 			#print("Error opening video stream or file")
@@ -61,31 +60,32 @@ class SpecificWorker(GenericWorker):
 
 	@QtCore.Slot()
 	def compute(self):
-			print 'SpecificWorker.compute...'
+			#print 'SpecificWorker.compute...'
 			#ret, frame = self.cap.read()
-			ret0, frame0 = self.readImg(self.stream0)
-			ret1, frame1 = self.readImg(self.stream1)
+			ret, frame = self.readImg(self.stream)
+			
+			fgmask = self.fgbg.apply(frame)
+			kernel = np.ones((5,5),np.uint8)
+			kk1 = cv2.erode(fgmask, kernel, iterations = 2)
+			kk2 = cv2.dilate(kk1, kernel, iterations = 2)
+			k = cv2.waitKey(10)
+			cv2.imshow('mask',kk2)
+			
+			print cv2.countNonZero(kk2)
 			
 			
-			try:
-				imgs = ()
-				img = TImage(frame.shape[1], frame.shape[0], 3, ())
-				img.image = frame0.data
-				people0 = self.openposeserver_proxy.processImage(img)
-				imgs.append( self.drawPose(people, frame0) )
-				
-				img.image = frame1.data
-				people1 = self.openposeserver_proxy.processImage(img)
-				imgs.append( self.drawPose(people, frame1) )
-				
-				imggrid = self.drawGrid(2,1, imgs)
-				cv2.imshow('OpenPose',imggrid)
-				
-			except Ice.Exception, e:
-				traceback.print_exc()
-				print e
+			if cv2.countNonZero(kk2) > 100:
+				try:
+					img = TImage(frame.shape[1], frame.shape[0], 3, ())
+					img.image = frame.data
+					people = self.openposeserver_proxy.processImage(img)
+					self.drawPose(people, frame);				
+					cv2.imshow('OpenPose',frame)
+					
+				except Ice.Exception, e:
+					traceback.print_exc()
+					print e
 
-			return True
 
 	def drawPose(self, people, img):
 		for person in people:
@@ -117,6 +117,8 @@ class SpecificWorker(GenericWorker):
 				self.drawLine(body, img, "lknee", "lfoot")
 				
 		 #cv2.imshow('OpenPose',img)
+		
+		
 		
 	def drawLine(self, body, img, one, two):
 		if (body[one].x != 0 or body[one].y != 0) and (body[two].x != 0 or body[two].y != 0):
