@@ -62,8 +62,8 @@ import signal
 import threading
 
 from PySide import QtGui, QtCore
-from flask import Flask, render_template, Response
 from specificworker import *
+from flask import Flask, render_template, Response
 
 appp = Flask(__name__)
 
@@ -152,7 +152,7 @@ if __name__ == '__main__':
 	print"Paso*******"
 	#para multi client thread=True
 	#Para poder acceder desde otros equipos cambiar puerto a 8080
-    appp.(host='0.0.0.0')
+	appp.run(host='0.0.0.0')
     
 	if ic:
 		try:

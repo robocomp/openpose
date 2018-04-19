@@ -22,8 +22,6 @@ import numpy as np
 import requests
 import thread
 import itertools
-from flask import Flask, render_template, Response
-
 
 from PySide import QtGui, QtCore
 from genericworker import *
