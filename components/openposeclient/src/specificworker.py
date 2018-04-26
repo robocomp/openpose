@@ -20,8 +20,8 @@ import sys, os, traceback, time
 import cv2
 import numpy as np
 import requests
-import thread
-
+import threading
+import Queue
 from PySide import QtGui, QtCore
 from genericworker import *
 
@@ -30,15 +30,16 @@ sys.path.append('/opt/robocomp/lib')
 #import librobocomp_osgviewer
 #import librobocomp_innermodel
 
-
-class Cap:
-	def __init__(self, camera):
+class Cap(threading.Thread):
+	def __init__(self, camera, myqueue):
+		super(Cap,self).__init__()
 		self.stream = requests.get(camera, stream=True)
-		if self.stream == 0:
-			print "Error"
+		self.myqueue = myqueue
+		if self.stream.status_code is not 200:
+			print "Error connecting to stream ", camera
 			sys.exit(1)
 		
-	def read(self):
+	def run(self):
 		byte = bytes()
 		for chunk in self.stream.iter_content(chunk_size=1024):
 			byte += chunk
@@ -49,17 +50,12 @@ class Cap:
 				byte = byte[b+2:]
 				if len(jpg) > 0:
 					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
-					return True, img
-				else:
-					return False, np.array(0)
-
+					self.myqueue.put(img)				
 
 class SpecificWorker(GenericWorker):
 	def __init__(self, proxy_map):
 		super(SpecificWorker, self).__init__(proxy_map)
-		self.timer.timeout.connect(self.compute)
-		self.Period = 50
-		self.timer.start(self.Period)
+		self.myqueue = Queue.Queue()
 
 	def setParams(self, params):
 		try:
@@ -68,29 +64,32 @@ class SpecificWorker(GenericWorker):
 				camera = 0
 				self.cap = cv2.VideoCapture(camera)
 			else:
-				self.cap = Cap(camera)
+				self.cap = Cap(camera, self.myqueue)
+				self.cap.start()
+			
+			self.fgbg = cv2.createBackgroundSubtractorMOG2()
+			self.timer.timeout.connect(self.compute)
+			self.Period = 5
+			self.timer.start(self.Period)
+	
 		except:
 			traceback.print_exc()
 			print "Error reading config params"
 			sys.exit()
-
-		self.fgbg = cv2.createBackgroundSubtractorMOG2()
 		
-		return True
 
 	@QtCore.Slot()
 	def compute(self):
-			print "---------"
-			
-			ret, frame = self.cap.read()
+			start = time.time()
+			frame = self.myqueue.get()
 			
 			fgmask = self.fgbg.apply(frame)
 			kernel = np.ones((5,5),np.uint8)
-			kk1 = cv2.erode(fgmask, kernel, iterations = 2)
-			kk2 = cv2.dilate(kk1, kernel, iterations = 2)
+			erode = cv2.erode(fgmask, kernel, iterations = 2)
+			dilate = cv2.dilate(erode, kernel, iterations = 2)
 			k = cv2.waitKey(10)
 			
-			if cv2.countNonZero(kk2) > 100:
+			if cv2.countNonZero(dilate) > 100:
 				try:
 					img = TImage(frame.shape[1], frame.shape[0], 3, ())
 					img.image = frame.data
@@ -101,6 +100,8 @@ class SpecificWorker(GenericWorker):
 				except Ice.Exception, e:
 					traceback.print_exc()
 					print e
+			ms = int((time.time() - start) * 1000)
+			print "elapsed", ms, " ms. FPS: ", int(1000/ms)
 
 	def drawPose(self, people, img):
 		for person in people:
