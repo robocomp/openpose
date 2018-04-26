@@ -26,9 +26,33 @@ from PySide import QtGui, QtCore
 from genericworker import *
 
 sys.path.append('/opt/robocomp/lib')
-import librobocomp_qmat
-import librobocomp_osgviewer
-import librobocomp_innermodel
+#import librobocomp_qmat
+#import librobocomp_osgviewer
+#import librobocomp_innermodel
+
+
+class Cap:
+	def __init__(self, camera):
+		self.stream = requests.get(camera, stream=True)
+		if self.stream == 0:
+			print "Error"
+			sys.exit(1)
+		
+	def read(self):
+		byte = bytes()
+		for chunk in self.stream.iter_content(chunk_size=1024):
+			byte += chunk
+			a = byte.find(b'\xff\xd8')
+			b = byte.find(b'\xff\xd9')
+			if a != -1 and b != -1:
+				jpg = byte[a:b+2]
+				byte = byte[b+2:]
+				if len(jpg) > 0:
+					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+					return True, img
+				else:
+					return False, np.array(0)
+
 
 class SpecificWorker(GenericWorker):
 	def __init__(self, proxy_map):
@@ -40,39 +64,31 @@ class SpecificWorker(GenericWorker):
 	def setParams(self, params):
 		try:
 			camera = params["Camera"]
-			
 			if camera == "webcam":
 				camera = 0
-
+				self.cap = cv2.VideoCapture(camera)
+			else:
+				self.cap = Cap(camera)
 		except:
 			traceback.print_exc()
 			print "Error reading config params"
 			sys.exit()
 
-		#self.cap = cv2.VideoCapture(camera)
-		self.stream = requests.get(camera, stream=True)
 		self.fgbg = cv2.createBackgroundSubtractorMOG2()
 		
-		#if (self.cap.isOpened()== False): 
-			#print("Error opening video stream or file")
-					
 		return True
 
 	@QtCore.Slot()
 	def compute(self):
-			#print 'SpecificWorker.compute...'
-			#ret, frame = self.cap.read()
-			ret, frame = self.readImg(self.stream)
+			print "---------"
+			
+			ret, frame = self.cap.read()
 			
 			fgmask = self.fgbg.apply(frame)
 			kernel = np.ones((5,5),np.uint8)
 			kk1 = cv2.erode(fgmask, kernel, iterations = 2)
 			kk2 = cv2.dilate(kk1, kernel, iterations = 2)
 			k = cv2.waitKey(10)
-			cv2.imshow('mask',kk2)
-			
-			print cv2.countNonZero(kk2)
-			
 			
 			if cv2.countNonZero(kk2) > 100:
 				try:
@@ -85,7 +101,6 @@ class SpecificWorker(GenericWorker):
 				except Ice.Exception, e:
 					traceback.print_exc()
 					print e
-
 
 	def drawPose(self, people, img):
 		for person in people:

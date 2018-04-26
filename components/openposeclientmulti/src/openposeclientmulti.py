@@ -64,28 +64,31 @@ import threading
 from PySide import QtGui, QtCore
 from specificworker import *
 from flask import Flask, render_template, Response
+import time
 
-appp = Flask(__name__)
 
-def Hola(count):
-    """funcion que realiza el trabajo en el thread"""
-    print "Este es el %s trabajo que hago hoy para Genbeta Dev" % count
-    return
+#appp = Flask(__name__)
 
-@appp.route('/')
-def index():
-    return render_template('index.html')
+#@appp.route('/')
+#def index():
+    #return render_template('index.html')
 
-def gen(specificworker):
-	print 'Estoy trabajando'
-	while True:
-		yield (b'--frame\r\n'
-			b'Content-Type: image/jpeg\r\n\r\n' + specificworker.jpegResult + b'\r\n\r\n')
+#def gen():
+	#while True:
+		##Si no realizamos un sleep, se generan tantos frames por segundo que la maquina no da a basto y hay que reiniciarla
+		##Como el server da unos 11 frames de media por segundo, no tiene sentido disminuir el tiempo de sleep, el cual, en 0.8 da 11.X frames por segundo
+		#time.sleep(0.08)
+		#yield (b'--frame\r\n'
+			#b'Content-Type: image/jpeg\r\n\r\n' + worker.jpegResult + b'\r\n\r\n')
 	
 			
-@appp.route('/video_feed')
-def video_feed():
-	return Response(gen(worker), mimetype='multipart/x-mixed-replace; boundary=frame')
+#@appp.route('/video_feed')
+#def video_feed():
+	#return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+#def ejecutarFlask():
+	#time.sleep(3)
+	#appp.run(host='0.0.0.0', port=8080, threaded=True)
 
 class CommonBehaviorI(RoboCompCommonBehavior.CommonBehavior):
 	def __init__(self, _handler, _communicator):
@@ -148,12 +151,10 @@ if __name__ == '__main__':
 		worker.setParams(parameters)
 		
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
+	#t = threading.Thread(target = ejecutarFlask)
+	#t.start()
 	app.exec_()
-	print"Paso*******"
-	#para multi client thread=True
-	#Para poder acceder desde otros equipos cambiar puerto a 8080
-	appp.run(host='0.0.0.0')
-    
+	
 	if ic:
 		try:
 			ic.destroy()

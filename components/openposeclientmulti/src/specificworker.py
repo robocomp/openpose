@@ -17,19 +17,52 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 import sys, os, traceback, time
+from flask import Flask, render_template, Response
 import cv2
 import numpy as np
 import requests
-import thread
+import threading
 import itertools
 
 from PySide import QtGui, QtCore
 from genericworker import *
 
 sys.path.append('/opt/robocomp/lib')
-import librobocomp_qmat
-import librobocomp_osgviewer
-import librobocomp_innermodel
+#import librobocomp_qmat
+#import librobocomp_osgviewer
+#import librobocomp_innermodel
+
+
+class MyFlask(threading.Thread):
+	app = Flask(__name__)
+	
+	def __init__(self, worker):
+		threading.Thread.__init__(self)
+		self.worker = worker
+		
+	@app.route('/')
+	def index():
+		return render_template('index.html')
+
+	@staticmethod	
+	def gen():
+		while True:
+			#Si no realizamos un sleep, se generan tantos frames por segundo que la maquina no da a basto y hay que reiniciarla
+			#Como el server da unos 11 frames de media por segundo, no tiene sentido disminuir el tiempo de sleep, el cual, en 0.8 da 11.X frames por segundo
+			time.sleep(0.08)
+			yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + self.worker.jpegResult + b'\r\n\r\n')
+			
+	@app.route('/video_feed')
+	def video_feed():
+		return Response(MyFlask.gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
+	
+	
+	def run(self):
+		time.sleep(3)
+		self.app.run(host='0.0.0.0', port=8080, threaded=True)
+
+
+#####################################################################
 
 class SpecificWorker(GenericWorker):
 
@@ -37,7 +70,10 @@ class SpecificWorker(GenericWorker):
 		super(SpecificWorker, self).__init__(proxy_map)
 		self.timer.timeout.connect(self.compute)
 		self.Period = 50
-		self.timer.start(self.Period)		
+		self.timer.start(self.Period)
+		self.jpegResult = ()
+		self.flask = MyFlask(self)
+		self.flask.start()
 		
 
 	def setParams(self, params):
@@ -75,8 +111,7 @@ class SpecificWorker(GenericWorker):
 		self.stream3 = requests.get(camera3, stream=True)
 		self.stream4 = requests.get(camera4, stream=True)
 		self.stream5 = requests.get(camera5, stream=True)
-		
-		
+	
 		
 		#if (self.cap.isOpened()== False): 
 			#print("Error opening video stream or file")
