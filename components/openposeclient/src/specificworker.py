@@ -81,7 +81,9 @@ class SpecificWorker(GenericWorker):
 	@QtCore.Slot()
 	def compute(self):
 			start = time.time()
-			frame = self.myqueue.get()
+			
+			#frame = self.myqueue.get()
+			ret, frame = self.cap.read()
 			
 			fgmask = self.fgbg.apply(frame)
 			kernel = np.ones((5,5),np.uint8)
