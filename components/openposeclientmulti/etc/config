@@ -7,7 +7,7 @@ Camera2 = http://10.253.247.29:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admi
 Camera3 = http://10.253.247.30:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow
 Camera4 = http://10.253.247.31:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow
 Camera5 = http://10.253.247.32:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow0
-Camera6 = http://10.253.247.32:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow0
+#Camera6 = http://10.253.247.32:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow0
 
 #http://user:cotilla$@10.253.247.32:5900/mjpg/video.mjpg
 
