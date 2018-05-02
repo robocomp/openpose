@@ -5,6 +5,7 @@ Component openposeclient
 	Communications
 	{
 		requires OpenposeServer;
+		publishes OpenposePublishPeople;
 	};
 	language Python;
 };

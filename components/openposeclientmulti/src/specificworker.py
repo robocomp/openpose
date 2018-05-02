@@ -61,28 +61,52 @@ class MyFlask(threading.Thread):
 
 #####################################################################
 
-class Cap(threading.Thread):
-	def __init__(self, camera, myqueue):
-		super(Cap,self).__init__()
-		self.stream = requests.get(camera, stream=True)
-		self.myqueue = myqueue
-		if self.stream.status_code is not 200:
-			print "Error connecting to stream ", camera
-			sys.exit(1)
+#class Cap(threading.Thread):
+	#def __init__(self, camera, myqueue):
+		#super(Cap,self).__init__()
+		#self.stream = requests.get(camera, stream=True)
+		#self.myqueue = myqueue
+		#if self.stream.status_code is not 200:
+			#print "Error connecting to stream ", camera
+			#sys.exit(1)
 		
-	def run(self):
-		byte = bytes()
-		for chunk in self.stream.iter_content(chunk_size=1024):
-			byte += chunk
-			a = byte.find(b'\xff\xd8')
-			b = byte.find(b'\xff\xd9')
-			if a != -1 and b != -1:
-				jpg = byte[a:b+2]
-				byte = byte[b+2:]
-				if len(jpg) > 0:
-					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
-					self.myqueue.put(img)	
+	#def run(self):
+		#byte = bytes()
+		#for chunk in self.stream.iter_content(chunk_size=1024):
+			#byte += chunk
+			#a = byte.find(b'\xff\xd8')
+			#b = byte.find(b'\xff\xd9')
+			#if a != -1 and b != -1:
+				#jpg = byte[a:b+2]
+				#byte = byte[b+2:]
+				#if len(jpg) > 0:
+					#img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+					#self.myqueue.put(img)	
+	
+#class Cap(threading.Thread):
+	#def __init__(self, camera, img):
+		#super(Cap,self).__init__()
+		#self.stream = requests.get(camera, stream=True)
+		#self.img = img
+		#if self.stream.status_code is not 200:
+			#print "Error connecting to stream ", camera
+			#sys.exit(1)
+		
+	#def run(self):
+		#byte = bytes()
+		#ready[0] = False
+		#for chunk in self.stream.iter_content(chunk_size=1024):
+			#byte += chunk
+			#a = byte.find(b'\xff\xd8')
+			#b = byte.find(b'\xff\xd9')
+			#if a != -1 and b != -1:
+				#jpg = byte[a:b+2]
+				#byte = byte[b+2:]
+				#if len(jpg) > 0:
+					#img[0] = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+					#ready[0] = True
 					
+	
 #######################################################################					
 
 class SpecificWorker(GenericWorker):
@@ -107,6 +131,7 @@ class SpecificWorker(GenericWorker):
 			self.streams.append( requests.get(c, stream=True))
 			self.fgbgs.append( cv2.createBackgroundSubtractorMOG2() )
 		
+		#Flask
 		self.imgToFlask = [None]	#to pass to Flask
 		self.flask = MyFlask('flask', self.imgToFlask)
 		self.flask.start()
@@ -141,8 +166,8 @@ class SpecificWorker(GenericWorker):
 				
 			imggrid = self.drawGrid(3,2, self.imgs)
 			textImg = np.zeros(imggrid.shape, np.uint8 );
-			cv2.putText(textImg, "NOT RECORDING", (textImg.shape[1]/2 - 500, textImg.shape[0]/2.5), cv2.FONT_HERSHEY_SIMPLEX, 4.0, (30,30,30), 4);
-			cv2.rotate(textImg, -45, textImg);
+			cv2.putText(textImg, "NOT RECORDING", (textImg.shape[1]/2 - 500, textImg.shape[0]/2), cv2.FONT_HERSHEY_SIMPLEX, 4.0, (30,30,30), 4);
+			#cv2.rotate(textImg, -45, textImg);
 			imggrid = imggrid + textImg;
 			ret, jpeg = cv2.imencode('.jpg', imggrid)
 			self.imgToFlask[0] = jpeg.tobytes()
@@ -152,40 +177,39 @@ class SpecificWorker(GenericWorker):
 				
 	def drawPose(self, people, img):
 		for person in people:
+			color = np.random.random_integers(0,255,3)
 			body = person.body
 			if len(body) == 18:
 				for v in body.values():
 					if v.x != 0 or v.y != 0:
-						color = np.random.random_integers(0,255,3)
 						cv2.circle(img,(v.x, v.y), 3, color , -1)
 				
 				#"nose","neck","lsh","lwrist","lelbow","rsh","relbow","rwrist","lhip","lknee","lfoot","rhip","rknee","rfoot","leye","reye","lear","rear";
 				
-				self.drawLine(body, img, "leye", "nose")
-				self.drawLine(body, img, "reye", "nose")
-				self.drawLine(body, img, "nose", "neck")
-				self.drawLine(body, img, "lear", "leye")
-				self.drawLine(body, img, "rear", "reye")
-				self.drawLine(body, img, "neck", "rsh")
-				self.drawLine(body, img, "neck", "lsh")
-				self.drawLine(body, img, "rsh", "relbow")
-				self.drawLine(body, img, "relbow", "rwrist")
-				self.drawLine(body, img, "lsh", "lelbow")
-				self.drawLine(body, img, "lelbow", "lwrist")
-				self.drawLine(body, img, "neck", "lhip")
-				self.drawLine(body, img, "neck", "rhip")
-				self.drawLine(body, img, "rhip", "rknee")
-				self.drawLine(body, img, "rknee", "rfoot")
-				self.drawLine(body, img, "lhip", "lknee")
-				self.drawLine(body, img, "lknee", "lfoot")
+				self.drawLine(body, img, "leye", "nose", color)
+				self.drawLine(body, img, "reye", "nose", color)
+				self.drawLine(body, img, "nose", "neck", color)
+				self.drawLine(body, img, "lear", "leye", color)
+				self.drawLine(body, img, "rear", "reye", color)
+				self.drawLine(body, img, "neck", "rsh", color)
+				self.drawLine(body, img, "neck", "lsh", color)
+				self.drawLine(body, img, "rsh", "relbow", color)
+				self.drawLine(body, img, "relbow", "rwrist", color)
+				self.drawLine(body, img, "lsh", "lelbow", color)
+				self.drawLine(body, img, "lelbow", "lwrist", color)
+				self.drawLine(body, img, "neck", "lhip", color)
+				self.drawLine(body, img, "neck", "rhip", color)
+				self.drawLine(body, img, "rhip", "rknee", color)
+				self.drawLine(body, img, "rknee", "rfoot", color)
+				self.drawLine(body, img, "lhip", "lknee", color)
+				self.drawLine(body, img, "lknee", "lfoot", color)
 				
 		#cv2.imshow('OpenPose',img)
 		#return jose
 		return img
 		
-	def drawLine(self, body, img, one, two):
+	def drawLine(self, body, img, one, two, color):
 		if (body[one].x != 0 or body[one].y != 0) and (body[two].x != 0 or body[two].y != 0):
-			color = np.random.random_integers(0,255,3)
 			cv2.line(img, (body[one].x,body[one].y), (body[two].x, body[two].y), color, 2)
 			
 

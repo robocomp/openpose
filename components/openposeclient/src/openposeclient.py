@@ -106,6 +106,15 @@ if __name__ == '__main__':
 	for i in ic.getProperties():
 		parameters[str(i)] = str(ic.getProperties().getProperty(i))
 
+	# Topic Manager
+	proxy = ic.getProperties().getProperty("TopicManager.Proxy")
+	obj = ic.stringToProxy(proxy)
+	try:
+		topicManager = IceStorm.TopicManagerPrx.checkedCast(obj)
+	except Ice.ConnectionRefusedException, e:
+		print 'Cannot connect to IceStorm! ('+proxy+')'
+		sys.exit(-1)
+
 	# Remote object connection for OpenposeServer
 	try:
 		proxyString = ic.getProperties().getProperty('OpenposeServerProxy')
@@ -121,6 +130,25 @@ if __name__ == '__main__':
 		print e
 		print 'Cannot get OpenposeServerProxy property.'
 		status = 1
+
+
+	# Create a proxy to publish a OpenposePublishPeople topic
+	topic = False
+	try:
+		topic = topicManager.retrieve("OpenposePublishPeople")
+	except:
+		pass
+	while not topic:
+		try:
+			topic = topicManager.retrieve("OpenposePublishPeople")
+		except IceStorm.NoSuchTopic:
+			try:
+				topic = topicManager.create("OpenposePublishPeople")
+			except:
+				print 'Another client created the OpenposePublishPeople topic? ...'
+	pub = topic.getPublisher().ice_oneway()
+	openposepublishpeopleTopic = OpenposePublishPeoplePrx.uncheckedCast(pub)
+	mprx["OpenposePublishPeoplePub"] = openposepublishpeopleTopic
 
 	if status == 0:
 		worker = SpecificWorker(mprx)

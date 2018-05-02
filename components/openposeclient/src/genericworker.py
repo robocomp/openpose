@@ -67,6 +67,7 @@ class GenericWorker(QtCore.QObject):
 
 
 		self.openposeserver_proxy = mprx["OpenposeServerProxy"]
+		self.openposepublishpeople_proxy = mprx["OpenposePublishPeoplePub"]
 
 
 		self.mutex = QtCore.QMutex(QtCore.QMutex.Recursive)

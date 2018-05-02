@@ -64,9 +64,8 @@ class SpecificWorker(GenericWorker):
 				camera = 0
 				self.cap = cv2.VideoCapture(camera)
 			else:
-				self.cap = Cap(camera, self.myqueue)
-				self.cap.start()
-			
+				self.stream = requests.get(camera, stream=True)
+				
 			self.fgbg = cv2.createBackgroundSubtractorMOG2()
 			self.timer.timeout.connect(self.compute)
 			self.Period = 5
@@ -83,13 +82,12 @@ class SpecificWorker(GenericWorker):
 			start = time.time()
 			
 			#frame = self.myqueue.get()
-			ret, frame = self.cap.read()
+			ret, frame = self.readImg(self.stream)
 			
 			fgmask = self.fgbg.apply(frame)
 			kernel = np.ones((5,5),np.uint8)
 			erode = cv2.erode(fgmask, kernel, iterations = 2)
 			dilate = cv2.dilate(erode, kernel, iterations = 2)
-			k = cv2.waitKey(10)
 			
 			if cv2.countNonZero(dilate) > 100:
 				try:
@@ -99,48 +97,55 @@ class SpecificWorker(GenericWorker):
 					self.drawPose(people, frame);				
 					cv2.imshow('OpenPose',frame)
 					
+					try:
+						self.openposepublishpeople_proxy.newPeople(0, people)
+					except Ice.Exception, e:
+						traceback.print_exc()
+						print e
+						
 				except Ice.Exception, e:
 					traceback.print_exc()
 					print e
+					
 			ms = int((time.time() - start) * 1000)
 			print "elapsed", ms, " ms. FPS: ", int(1000/ms)
+			
 
 	def drawPose(self, people, img):
 		for person in people:
+			color = np.random.random_integers(0,255,3)
 			body = person.body
 			if len(body) == 18:
 				for v in body.values():
 					if v.x != 0 or v.y != 0:
-						color = np.random.random_integers(0,255,3)
 						cv2.circle(img,(v.x, v.y), 3, color , -1)
 				
 				#"nose","neck","lsh","lwrist","lelbow","rsh","relbow","rwrist","lhip","lknee","lfoot","rhip","rknee","rfoot","leye","reye","lear","rear";
 				
-				self.drawLine(body, img, "leye", "nose")
-				self.drawLine(body, img, "reye", "nose")
-				self.drawLine(body, img, "nose", "neck")
-				self.drawLine(body, img, "lear", "leye")
-				self.drawLine(body, img, "rear", "reye")
-				self.drawLine(body, img, "neck", "rsh")
-				self.drawLine(body, img, "neck", "lsh")
-				self.drawLine(body, img, "rsh", "relbow")
-				self.drawLine(body, img, "relbow", "rwrist")
-				self.drawLine(body, img, "lsh", "lelbow")
-				self.drawLine(body, img, "lelbow", "lwrist")
-				self.drawLine(body, img, "neck", "lhip")
-				self.drawLine(body, img, "neck", "rhip")
-				self.drawLine(body, img, "rhip", "rknee")
-				self.drawLine(body, img, "rknee", "rfoot")
-				self.drawLine(body, img, "lhip", "lknee")
-				self.drawLine(body, img, "lknee", "lfoot")
+				self.drawLine(body, img, "leye", "nose", color)
+				self.drawLine(body, img, "reye", "nose", color)
+				self.drawLine(body, img, "nose", "neck", color)
+				self.drawLine(body, img, "lear", "leye", color)
+				self.drawLine(body, img, "rear", "reye", color)
+				self.drawLine(body, img, "neck", "rsh", color)
+				self.drawLine(body, img, "neck", "lsh", color)
+				self.drawLine(body, img, "rsh", "relbow", color)
+				self.drawLine(body, img, "relbow", "rwrist", color)
+				self.drawLine(body, img, "lsh", "lelbow", color)
+				self.drawLine(body, img, "lelbow", "lwrist", color)
+				self.drawLine(body, img, "neck", "lhip", color)
+				self.drawLine(body, img, "neck", "rhip", color)
+				self.drawLine(body, img, "rhip", "rknee", color)
+				self.drawLine(body, img, "rknee", "rfoot", color)
+				self.drawLine(body, img, "lhip", "lknee", color)
+				self.drawLine(body, img, "lknee", "lfoot", color)
 				
 		 #cv2.imshow('OpenPose',img)
 		
 		
 		
-	def drawLine(self, body, img, one, two):
+	def drawLine(self, body, img, one, two, color):
 		if (body[one].x != 0 or body[one].y != 0) and (body[two].x != 0 or body[two].y != 0):
-			color = np.random.random_integers(0,255,3)
 			cv2.line(img, (body[one].x,body[one].y), (body[two].x, body[two].y), color, 2)
 			
 
