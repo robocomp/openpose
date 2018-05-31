@@ -1,0 +1,14 @@
+import "OpenposeServer.idsl";
+import "RGBD.idsl";
+
+Component openposeclient
+{
+	Communications
+	{
+		requires OpenposeServer;
+		publishes OpenposePublishPeople;
+		requires RGBD;
+	};
+	language Python;
+};
+
