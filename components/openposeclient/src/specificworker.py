@@ -30,28 +30,37 @@ sys.path.append('/opt/robocomp/lib')
 #import librobocomp_osgviewer
 #import librobocomp_innermodel
 
-class Cap(threading.Thread):
-	def __init__(self, camera, myqueue):
-		super(Cap,self).__init__()
-		self.stream = requests.get(camera, stream=True)
-		self.myqueue = myqueue
-		if self.stream.status_code is not 200:
-			print "Error connecting to stream ", camera
-			sys.exit(1)
+#class Cap(threading.Thread):
+class Cap():
+	def __init__(self, camera):
+		#super(Cap,self).__init__()
+		if camera == "webcam":
+			self.cap = cv2.VideoCapture(0)
+			self.url = False
+		else:
+			self.stream = requests.get(camera, stream=True)
+			self.url = True
+			if self.stream.status_code is not 200:
+				print "Error connecting to stream ", camera
+				sys.exit(1)
 		
 	def run(self):
-		byte = bytes()
-		for chunk in self.stream.iter_content(chunk_size=1024):
-			byte += chunk
-			a = byte.find(b'\xff\xd8')
-			b = byte.find(b'\xff\xd9')
-			if a != -1 and b != -1:
-				jpg = byte[a:b+2]
-				byte = byte[b+2:]
-				if len(jpg) > 0:
-					img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
-					self.myqueue.put(img)				
-
+		if self.url:
+			byte = bytes()
+			for chunk in self.stream.iter_content(chunk_size=1024):
+				byte += chunk
+				a = byte.find(b'\xff\xd8')
+				b = byte.find(b'\xff\xd9')
+				if a != -1 and b != -1:
+					jpg = byte[a:b+2]
+					byte = byte[b+2:]
+					if len(jpg) > 0:
+						img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+						return img
+		else:
+			ret, img = self.cap.read()
+			return img
+				
 class SpecificWorker(GenericWorker):
 	def __init__(self, proxy_map):
 		super(SpecificWorker, self).__init__(proxy_map)
@@ -60,11 +69,12 @@ class SpecificWorker(GenericWorker):
 	def setParams(self, params):
 		try:
 			camera = params["Camera"]
-			if camera == "webcam":
-				camera = 0
-				self.cap = cv2.VideoCapture(camera)
-			else:
-				self.stream = requests.get(camera, stream=True)
+			self.cap = Cap(camera)
+			#if camera == "webcam":
+				#camera = 0
+				#self.cap = cv2.VideoCapture(camera)
+			#else:
+				#self.stream = requests.get(camera, stream=True)
 				
 			self.fgbg = cv2.createBackgroundSubtractorMOG2()
 			self.timer.timeout.connect(self.compute)
@@ -82,7 +92,9 @@ class SpecificWorker(GenericWorker):
 			start = time.time()
 			
 			#frame = self.myqueue.get()
-			ret, frame = self.readImg(self.stream)
+			frame = self.cap.run()
+			#ret, frame = self.readImg(self.stream)
+			cv2.imshow('OpenPose',frame)
 			
 			fgmask = self.fgbg.apply(frame)
 			kernel = np.ones((5,5),np.uint8)

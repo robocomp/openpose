@@ -1,4 +1,3 @@
-#
 # Copyright (C) 2018 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
@@ -26,6 +25,7 @@ import Queue
 import itertools
 from PySide import QtGui, QtCore
 from genericworker import *
+import pickle
 
 sys.path.append('/opt/robocomp/lib')
 #import librobocomp_qmat
@@ -141,29 +141,81 @@ class SpecificWorker(GenericWorker):
 		self.timer.start(self.Period)
 		
 		self.imgs = [None] * len(self.cameras)
+		self.diccionarioCamaras = {'camaras' : []}
 		return True
+	
+	#########################################  Implementcion de los hilos/camara  #####################################################################
+	#Las lineas comentadas de este metodo son para volcar people serializado en ficheros de texto, descomentar para la generacion de los mismos: un fichero por camara
+	def cameraThread(self, camera):
+		kernel = np.ones((5,5),np.uint8)
+		imageNumber = 0;#contador imagen
+		while (True):
+			time.sleep(0.05)
+			#millis = int(round(time.time() * 1000))
+			try:
+				ret, frame = self.readImg(self.streams[camera])
+				fgmask = self.fgbgs[camera].apply(frame)
+				erode = cv2.erode(fgmask, kernel, iterations = 2)
+				dilate = cv2.dilate(erode, kernel, iterations = 2)
+				if cv2.countNonZero(dilate) > 100:
+					f = open('camerasPeople/camera' + str(camera) + '/' + str(imageNumber) + '.txt','w')
+					img = TImage(frame.shape[1], frame.shape[0], 3, frame.data)
+					people = self.openposeserver_proxy.processImage(img)
+					serialized_people = pickle.dumps(people)
+					f.write(serialized_people)
+					self.imgs[camera] = self.drawPose(people, frame)
+					#ret, jpege = cv2.imencode('.jpg', img)
+					cv2.imwrite( "imagenes/camera" + str(camera) + "/" +"imageNumber" + str(imageNumber) + ".jpg", frame );#guardo imagen
+					imageNumber = imageNumber + 1;#contador imagen
+					f.close()
+				#millis2 = int(round(time.time() * 1000))
+				#print "Leo con camara " + str(camera) + " " + str(millis2 - millis)
+			except Ice.Exception, e:
+				traceback.print_exc()
+				print e
+				#indicar de alguna manera que hemos escrito en imgs
+	
+	def initCameraThreads(self): #para iniciar el hilo de cada camara y crear los diccionarios
+		diccionarios = []
+		#time.sleep(2)
+		for c in range(len(self.cameras)):
+			t = threading.Thread(target=self.cameraThread, args = (c,))
+			diccionario = {'url' : self.cameras[c], 'cameraThread' : t, 'imagegrid' : self.imgs} 
+			diccionarios.append(diccionario)
+			t.start()
+		
+		for c in range(len(diccionarios)):
+			self.diccionarioCamaras['camaras'].append(diccionarios[c])
+			
+			
+	##############################################################################################################
+		
 
 	@QtCore.Slot()
 	def compute(self):
 			
 			inicio = time.time()
-			kernel = np.ones((5,5),np.uint8)
-			
-			try:
-				for c in range(len(self.cameras)):
-					ret, frame = self.readImg(self.streams[c])
-					fgmask = self.fgbgs[c].apply(frame)
-					erode = cv2.erode(fgmask, kernel, iterations = 2)
-					dilate = cv2.dilate(erode, kernel, iterations = 2)
-					if cv2.countNonZero(dilate) > 100:
-						img = TImage(frame.shape[1], frame.shape[0], 3, frame.data)
-						people = self.openposeserver_proxy.processImage(img)
-						self.imgs[c] = self.drawPose(people, frame) 
-
-			except Ice.Exception, e:
-				traceback.print_exc()
-				print e
+		#	kernel = np.ones((5,5),np.uint8)
+		#	
+		#	#millis = int(round(time.time() * 1000))
+		#	try:
+		#		for c in range(len(self.cameras)):
+		#			ret, frame = self.readImg(self.streams[c])
+		#			fgmask = self.fgbgs[c].apply(frame)
+		#			erode = cv2.erode(fgmask, kernel, iterations = 2)
+		#			dilate = cv2.dilate(erode, kernel, iterations = 2)
+		#			if cv2.countNonZero(dilate) > 100:
+		#				img = TImage(frame.shape[1], frame.shape[0], 3, frame.data)
+		#				people = self.openposeserver_proxy.processImage(img)
+		#				self.imgs[c] = self.drawPose(people, frame)
+		#		
+		#	except Ice.Exception, e:
+		#		traceback.print_exc()
+		#		print e
 				
+			#millis2 = int(round(time.time() * 1000))
+			#print "Leo con camaras " + str(millis2 - millis)
+			
 			imggrid = self.drawGrid(3,2, self.imgs)
 			textImg = np.zeros(imggrid.shape, np.uint8 );
 			cv2.putText(textImg, "NOT RECORDING", (textImg.shape[1]/2 - 500, textImg.shape[0]/2), cv2.FONT_HERSHEY_SIMPLEX, 4.0, (30,30,30), 4);
