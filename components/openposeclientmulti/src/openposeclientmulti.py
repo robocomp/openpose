@@ -149,10 +149,12 @@ if __name__ == '__main__':
 	if status == 0:
 		worker = SpecificWorker(mprx)
 		worker.setParams(parameters)
+		worker.initCameraThreads();
 		
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	#t = threading.Thread(target = ejecutarFlask)
 	#t.start()
+	time.sleep(1)#Esperamos a que los hilos de las camaras comiencen a leer
 	app.exec_()
 	
 	if ic:

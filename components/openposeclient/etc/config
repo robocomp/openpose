@@ -1,8 +1,8 @@
 # Proxies for required interfaces
 OpenposeServerProxy = openposeserver:tcp -h localhost -p 12001
 
-#Camera = webcam
-Camera = http://10.253.247.24:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow
+Camera = webcam
+#Camera = http://10.253.247.24:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow
 #Camera = http://158.49.247.184:88/cgi-bin/CGIStream.cgi?cmd=GetMJStream&usr=admin&pwd=opticalflow
 
 # This property is used by the clients to connect to IceStorm.
