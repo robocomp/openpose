@@ -12,7 +12,13 @@ SET ( HEADERS
   specificworker.h
   specificmonitor.h)
 
-ADD_DEFINITIONS( -O3 -mavx2 -std=c++17 -fopenmp )
+if(COMMAND "cat /proc/cpuinfo | grep avx")
+  ADD_DEFINITIONS( -mavx2 )
+else()
+  message("NO AVX")
+endif()
+
+ADD_DEFINITIONS( -O3 -std=c++17 -fopenmp )
 SET ( SPECIFIC_LIBS  -L/usr/local/lib  ${OpenCV_LIBS} -lopenpose -lgflags -lopencv_video -lopencv_highgui  -lopencv_core -lopencv_objdetect -lopencv_imgproc)
 
 
