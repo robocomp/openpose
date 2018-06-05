@@ -20,7 +20,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# \mainpage RoboComp::openposeclient
+# \mainpage RoboComp::openposergbdclient
 #
 # \section intro_sec Introduction
 #
@@ -48,7 +48,7 @@
 #
 # \subsection execution_ssec Execution
 #
-# Just: "${PATH_TO_BINARY}/openposeclient --Ice.Config=${PATH_TO_CONFIG_FILE}"
+# Just: "${PATH_TO_BINARY}/openposergbdclient --Ice.Config=${PATH_TO_CONFIG_FILE}"
 #
 # \subsection running_ssec Once running
 #
@@ -107,30 +107,13 @@ if __name__ == '__main__':
 		parameters[str(i)] = str(ic.getProperties().getProperty(i))
 
 	# Topic Manager
-	proxy = ic.getProperties().getProperty("TopicManager.Proxy")
+	proxy = ic.getProperties().getProperty('TopicManager.Proxy')
 	obj = ic.stringToProxy(proxy)
 	try:
 		topicManager = IceStorm.TopicManagerPrx.checkedCast(obj)
 	except Ice.ConnectionRefusedException, e:
 		print 'Cannot connect to IceStorm! ('+proxy+')'
 		sys.exit(-1)
-
-	# Remote object connection for OpenposeServer
-	try:
-		proxyString = ic.getProperties().getProperty('OpenposeServerProxy')
-		try:
-			basePrx = ic.stringToProxy(proxyString)
-			openposeserver_proxy = OpenposeServerPrx.checkedCast(basePrx)
-			mprx["OpenposeServerProxy"] = openposeserver_proxy
-		except Ice.Exception:
-			print 'Cannot connect to the remote object (OpenposeServer)', proxyString
-			#traceback.print_exc()
-			status = 1
-	except Ice.Exception, e:
-		print e
-		print 'Cannot get OpenposeServerProxy property.'
-		status = 1
-
 
 	# Remote object connection for RGBD
 	try:
@@ -146,6 +129,23 @@ if __name__ == '__main__':
 	except Ice.Exception, e:
 		print e
 		print 'Cannot get RGBDProxy property.'
+		status = 1
+
+
+	# Remote object connection for OpenposeServer
+	try:
+		proxyString = ic.getProperties().getProperty('OpenposeServerProxy')
+		try:
+			basePrx = ic.stringToProxy(proxyString)
+			openposeserver_proxy = OpenposeServerPrx.checkedCast(basePrx)
+			mprx["OpenposeServerProxy"] = openposeserver_proxy
+		except Ice.Exception:
+			print 'Cannot connect to the remote object (OpenposeServer)', proxyString
+			#traceback.print_exc()
+			status = 1
+	except Ice.Exception, e:
+		print e
+		print 'Cannot get OpenposeServerProxy property.'
 		status = 1
 
 

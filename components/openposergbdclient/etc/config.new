@@ -1,6 +1,6 @@
 # Proxies for required interfaces
-OpenposeServerProxy = openposeserver:tcp -h 158.49.247.162 -p 12001
-RGBDProxy = rgbd:tcp -h localhost -p 10096
+OpenposeServerProxy = openposeserver:tcp -h localhost -p 0
+RGBDProxy = rgbd:tcp -h localhost -p 0
 
 
 

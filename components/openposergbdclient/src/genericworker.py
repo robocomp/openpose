@@ -102,8 +102,8 @@ class GenericWorker(QtCore.QObject):
 		super(GenericWorker, self).__init__()
 
 
-		self.openposeserver_proxy = mprx["OpenposeServerProxy"]
 		self.rgbd_proxy = mprx["RGBDProxy"]
+		self.openposeserver_proxy = mprx["OpenposeServerProxy"]
 		self.openposepublishpeople_proxy = mprx["OpenposePublishPeoplePub"]
 
 
