@@ -77,10 +77,9 @@ class SpecificWorker(GenericWorker):
         start = time.time()
         color, _, _, _ = self.rgbd_proxy.getData()
         image = np.frombuffer(color, dtype=np.uint8)
-        print image.size
         image = np.reshape(image, (480, 640, 3))
         frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
+	cv2.imshow('Image', frame)
         fgmask = self.fgbg.apply(frame)
         kernel = np.ones((5, 5), np.uint8)
         erode = cv2.erode(fgmask, kernel, iterations=2)
