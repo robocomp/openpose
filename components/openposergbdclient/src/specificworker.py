@@ -106,7 +106,7 @@ class SpecificWorker(GenericWorker):
                 img = TImage(frame.shape[1], frame.shape[0], 3, ())
                 img.image = frame.data
                 people = self.openposeserver_proxy.processImage(img)
-                self.mix_data(people, depth, frame)
+                people = self.mix_data(people, depth, frame)
                 self.drawPose(people, frame)
                 # cv2.imshow('OpenPose', frame)
 
@@ -158,6 +158,7 @@ class SpecificWorker(GenericWorker):
                                        "world_z": depth[v.x][v.y]}
                         # print world_coords
                         v.world_coord = world_coords
+            return people
 
     def drawPose(self, people, img):
         for person in people:
