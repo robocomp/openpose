@@ -88,11 +88,10 @@ class SpecificWorker(GenericWorker):
         else:
             print "Unknown image size"
             return
-        # depth_image = self.depth_array_to_image(depth, height, width, 3000)
+        depth_image = self.depth_array_to_image(depth, height, width, 7000)
         # depth_matrix = np.reshape(depth, (height, width))
         image = np.frombuffer(color, dtype=np.uint8)
         image = np.reshape(image, (height, width, 3))
-        print image.shape
         frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # cv2.imshow("Depth", depth_image)
         cv2.imshow('Image', frame)
@@ -108,24 +107,19 @@ class SpecificWorker(GenericWorker):
                 img.image = frame.data
                 people = self.openposeserver_proxy.processImage(img)
                 if people:
-                    points_array, _, _ = self.rgbd_proxy.getXYZ()
-                    points_cloud = np.reshape(points_array, (height, width))
+                    # points_array, _, _ = self.rgbd_proxy.getXYZ()
+                    # points_cloud = np.reshape(points_array, (height, width))
                     # print points_cloud.shape
-                    print points_cloud[width/2][height/2].z
-                    z_image = self.z_to_image(points_array, width, height)
+                    # print points_cloud[width/2][height/2].z
+                    # z_image = self.z_to_image(points_array, width, height)
                     # cv2.imshow('zimage', z_image)
                     # people = self.mix_data(people, points_cloud, frame)
                     # self.calculate_chest_z_average(people,points_cloud)
-                    self.get_body_z1(people, points_cloud)
-                    self.drawPose(people, z_image)
+                    # self.get_body_z1(people, points_cloud)
+                    self.calculate_body_xyz(people, depth, width, height)
+                    self.drawPose(people, depth_image)
                     # cv2.imshow('OpenPose', frame)
-                    # alpha = 0.20
-            #         # depth_overlay_ = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2RGB)
-            #         # result = cv2.addWeighted(depth_overlay_, 1, frame, 1-alpha, 0)
-            #         result = self.alpha_blending(frame,depth_image)
-            #         cv2.imshow('Result', result)
-            #
-
+ 
             #       try:
             #             self.openposepublishpeople_proxy.newPeople(0, people)
             #         except Ice.Exception, e:
@@ -153,23 +147,13 @@ class SpecificWorker(GenericWorker):
 
     # TODO: How do we stablish the max_depth?
     def depth_array_to_image(self, depth, height, width, max_depth = 90000):
-        v = ''
-        for i in range(len(depth)):
-            ascii = 0
-            try:
-                ascii = int(128. - (255. / max_depth) * depth[i])
-                if ascii > 255: ascii = 255
-                if ascii < 0: ascii = 0
-                # print type(depth[i])
-                # if fabs(depth[i]) > 0.00001: print depth[i]
-            except:
-                pass
-            if ascii > 255: ascii = 255
-            if ascii < 0: ascii = 0
-            v += chr(ascii)
-        depth = np.frombuffer(v, dtype=np.uint8)
-        depth = np.reshape(depth, (height, width))
-        return depth
+        min_z = min(depth)
+        max_z = max(depth)
+        # mean = np.mean(depth)
+        depth_interp_array = np.uint8(np.interp(depth, [min_z, max_z], [255, 0]))
+        depth_image = np.reshape(depth_interp_array, (height, width))
+        depth_image = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2RGB)
+        return depth_image
 
     def mix_data(self, people, points_cloud, frame):
         for person_n,person in enumerate(people):
@@ -220,6 +204,41 @@ class SpecificWorker(GenericWorker):
                 print "i={0:0.2f}".format(neck.x)+" j={0:0.2f}".format(neck.y+radius)+" x={0:0.2f}".format(center_point.x)+" y={0:0.2f}".format(center_point.y)+" z={0:0.2f}".format(center_point.z)
                 body["neck"].center_point= body_center_point
 
+    def calculate_body_xyz(self, people, depth_array,image_width, image_height, radius=10):
+        focal_length_x = 574
+        focal_length_y = 574
+        for person_n,person in enumerate(people):
+            # print "Person: "+str(person_n)
+            subpoints = []
+            body = person.body
+            if len(body) == 18:
+                neck = body["neck"]
+                if (neck.y + radius* 2) < image_height and (neck.x - radius)>0 and (neck.x + radius)<image_width :
+                    for y in range(neck.y, neck.y + radius* 2):
+                        for x in range(neck.x - radius, neck.x + radius):
+                            point = PointXYZ()
+                            offset = y * image_width + x
+                            # print len(depth_array)
+                            z = depth_array[offset]
+                            if z < 0.1 :
+                                point.x = float('nan')
+                                point.y = float('nan')
+                                point.z = float('nan')
+                                point.w = float('nan')
+                            else:
+                                point.x = z * (x - image_width / 2.) / focal_length_x
+                                point.y = z * (image_height / 2.- y) / focal_length_y
+                                point.z = z
+                                point.w = 1.0
+                            subpoints.append(point)
+                    average_z = np.nanmean([point.z for point in subpoints])
+                    center_point = subpoints[radius * radius * 2 + radius]
+                    body_center_point = {"i": neck.x, "j": neck.y + radius, "x": center_point.x, "y": center_point.y,
+                                         "z": average_z}
+                else:
+                    body_center_point = {"i": neck.x, "j": neck.y + radius, "x": float("nan"), "y": float("nan"),
+                                         "z": float("nan")}
+            body["neck"].center_point = body_center_point
 
 
 
