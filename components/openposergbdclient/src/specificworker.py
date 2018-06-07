@@ -88,14 +88,15 @@ class SpecificWorker(GenericWorker):
         else:
             print "Unknown image size"
             return
-        depth = self.depth_processing(depth)
-        depth = np.frombuffer(depth, dtype=np.uint8)
-        depth = np.reshape(depth, (height, width))
+        # depth_image = self.depth_array_to_image(depth, height, width, 3000)
+        # depth_matrix = np.reshape(depth, (height, width))
         image = np.frombuffer(color, dtype=np.uint8)
         image = np.reshape(image, (height, width, 3))
+        print image.shape
         frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        cv2.imshow("Depth", depth)
+        # cv2.imshow("Depth", depth_image)
         cv2.imshow('Image', frame)
+
         fgmask = self.fgbg.apply(frame)
         kernel = np.ones((5, 5), np.uint8)
         erode = cv2.erode(fgmask, kernel, iterations=2)
@@ -106,26 +107,52 @@ class SpecificWorker(GenericWorker):
                 img = TImage(frame.shape[1], frame.shape[0], 3, ())
                 img.image = frame.data
                 people = self.openposeserver_proxy.processImage(img)
-                people = self.mix_data(people, depth, frame)
-                self.drawPose(people, frame)
-                # cv2.imshow('OpenPose', frame)
+                if people:
+                    points_array, _, _ = self.rgbd_proxy.getXYZ()
+                    points_cloud = np.reshape(points_array, (height, width))
+                    # print points_cloud.shape
+                    print points_cloud[width/2][height/2].z
+                    z_image = self.z_to_image(points_array, width, height)
+                    # cv2.imshow('zimage', z_image)
+                    # people = self.mix_data(people, points_cloud, frame)
+                    # self.calculate_chest_z_average(people,points_cloud)
+                    self.get_body_z1(people, points_cloud)
+                    self.drawPose(people, z_image)
+                    # cv2.imshow('OpenPose', frame)
+                    # alpha = 0.20
+            #         # depth_overlay_ = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2RGB)
+            #         # result = cv2.addWeighted(depth_overlay_, 1, frame, 1-alpha, 0)
+            #         result = self.alpha_blending(frame,depth_image)
+            #         cv2.imshow('Result', result)
+            #
 
-                try:
-                    self.openposepublishpeople_proxy.newPeople(0, people)
-                except Ice.Exception, e:
-                    traceback.print_exc()
-                    print e
-
+            #       try:
+            #             self.openposepublishpeople_proxy.newPeople(0, people)
+            #         except Ice.Exception, e:
+            #             traceback.print_exc()
+            #             print e
             except Ice.Exception, e:
                 traceback.print_exc()
                 print e
-        cv2.imshow('OpenPose', frame)
+
+        # cv2.imshow('OpenPose', frame)
         ms = int((time.time() - start) * 1000)
         print "elapsed", ms, " ms. FPS: ", int(1000 / ms)
 
 
+    def z_to_image(self, points_array, width, height):
+        zs = [point.z for point in points_array]
+        min_z = min(zs)
+        max_z = max (zs)
+        # mean = np.mean(zs)
+        zs_interp_array = np.uint8(np.interp(zs, [min_z,max_z], [255,0]))
+        zs_image = np.reshape(zs_interp_array,(height,width))
+        zs_image = cv2.cvtColor(zs_image, cv2.COLOR_GRAY2RGB)
+        return zs_image
+
+
     # TODO: How do we stablish the max_depth?
-    def depth_processing(self, depth, max_depth = 90000):
+    def depth_array_to_image(self, depth, height, width, max_depth = 90000):
         v = ''
         for i in range(len(depth)):
             ascii = 0
@@ -140,9 +167,11 @@ class SpecificWorker(GenericWorker):
             if ascii > 255: ascii = 255
             if ascii < 0: ascii = 0
             v += chr(ascii)
-        return v
+        depth = np.frombuffer(v, dtype=np.uint8)
+        depth = np.reshape(depth, (height, width))
+        return depth
 
-    def mix_data(self, people, depth, frame):
+    def mix_data(self, people, points_cloud, frame):
         for person_n,person in enumerate(people):
             print "Person: "+str(person_n)
             body = person.body
@@ -150,29 +179,55 @@ class SpecificWorker(GenericWorker):
                 for v in body.values():
                     if v.x != 0 or v.y != 0:
                         # print "body point: "+str(v.x)+" "+str(v.y)
-                        # print "Depth: "+str(depth[v.x][v.y])
+                        # print "Depth: "+str(points_cloud[v.x][v.y])
                         # print "Color: "+str(frame[v.x][v.y])
-                        #TODO: What does the depth values units represent?
-                        world_coords = {"world_y": (v.y / 485.) * depth[v.x][v.y],
-                                       "world_x": (v.x / 485.) * depth[v.x][v.y],
-                                       "world_z": depth[v.x][v.y]}
+                        #TODO: What does the points_cloud values units represent?
+                        world_coords = {"world_y": points_cloud[v.x][v.y].y,
+                                       "world_x": points_cloud[v.x][v.y].x,
+                                       "world_z": points_cloud[v.x][v.y].z}
                         # print world_coords
                         v.world_coord = world_coords
             return people
+
+    def get_body_z1(self, people, points_cloud, radius=10):
+        for person_n,person in enumerate(people):
+            # print "Person: "+str(person_n)
+            body = person.body
+            if len(body) == 18:
+                neck = body["neck"]
+                sub_points = points_cloud[neck.y:neck.y+radius*2, neck.x-radius:neck.x+radius]
+                average_z = np.nanmean([point.z for point in sub_points.flatten()])
+                if neck.y+radius < points_cloud.shape[0]:
+                    center_point = points_cloud[neck.y+radius][neck.x]
+                else:
+                    center_point = points_cloud[neck.y][neck.x]
+                body_center_point = {"i": neck.x, "j": neck.y + radius, "x": center_point.x, "y": center_point.y,
+                                     "z": average_z}
+                body["neck"].center_point = body_center_point
+
+
+    def get_body_z2(self, people, points_cloud, radius=10):
+        for person_n, person in enumerate(people):
+        # print "Person: "+str(person_n)
+            body = person.body
+            if len(body) == 18:
+                neck = body["neck"]
+                if neck.y+radius < points_cloud.shape[0]:
+                    center_point = points_cloud[neck.y+radius][neck.x]
+                else:
+                    center_point = points_cloud[neck.y][neck.x]
+                body_center_point = {"i": neck.x, "j": neck.y + radius, "x":center_point.x, "y": center_point.y, "z": center_point.z}
+                print "i={0:0.2f}".format(neck.x)+" j={0:0.2f}".format(neck.y+radius)+" x={0:0.2f}".format(center_point.x)+" y={0:0.2f}".format(center_point.y)+" z={0:0.2f}".format(center_point.z)
+                body["neck"].center_point= body_center_point
+
+
+
 
     def drawPose(self, people, img):
         for person in people:
             color = np.random.random_integers(0, 255, 3)
             body = person.body
             if len(body) == 18:
-                for v in body.values():
-                    if v.x != 0 or v.y != 0:
-                        cv2.circle(img, (v.x, v.y), 3, color, -1)
-                        coord_str = "x="+str(v.world_coord["world_x"])+" y="+str(v.world_coord["world_y"])+" z="+str(v.world_coord["world_z"])
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        cv2.putText(img,coord_str, (v.x, v.y), font, 0.3, color, 1)
-                        # print v.world_coord
-
                 # "nose","neck","lsh","lwrist","lelbow","rsh","relbow","rwrist","lhip","lknee","lfoot","rhip","rknee","rfoot","leye","reye","lear","rear";
 
                 self.drawLine(body, img, "leye", "nose", color)
@@ -192,8 +247,24 @@ class SpecificWorker(GenericWorker):
                 self.drawLine(body, img, "rknee", "rfoot", color)
                 self.drawLine(body, img, "lhip", "lknee", color)
                 self.drawLine(body, img, "lknee", "lfoot", color)
+                for key, v in body.items():
+                    if v.x != 0 or v.y != 0:
+                        cv2.circle(img, (v.x, v.y), 3, color, -1)
+                        if key=="neck":
+                            # try:
+                            #     coord_str = "x={0:0.2f}".format(v.world_coord["world_x"])+" y={0:0.2f}".format(v.world_coord["world_y"])+" z={0:0.2f}".format(v.world_coord["world_z"])
+                            #     font = cv2.FONT_HERSHEY_SIMPLEX
+                            #     cv2.putText(img,coord_str, (v.x, v.y), font, 0.7, (0,0,255), 1)
+                            # except:
+                            #     print "No world coordinates"
+                            coord_str = "z={0:0.2f}".format(v.center_point["z"])
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            cv2.circle(img, (v.center_point["i"], v.center_point["j"]), 3, (0,0,255), -1)
+                            cv2.putText(img,coord_str, (v.center_point["i"], v.center_point["j"]), font, 2, (0,0,255), 2)
 
-        #cv2.imshow('OpenPose',img)
+
+
+        cv2.imshow('OpenPose',img)
 
     def drawLine(self, body, img, one, two, color):
         if (body[one].x != 0 or body[one].y != 0) and (body[two].x != 0 or body[two].y != 0):
